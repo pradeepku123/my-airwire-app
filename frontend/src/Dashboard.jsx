@@ -3,7 +3,7 @@ import io from 'socket.io-client';
 import Peer from 'simple-peer';
 import { Phone, Video, Mic, MicOff, VideoOff, Wifi, PhoneOff, LogOut, User as UserIcon, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Navbar, Badge, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Navbar, Badge, Spinner, Toast, ToastContainer } from 'react-bootstrap';
 import { startRingtone, stopRingtone } from './utils/ringtone';
 
 function Dashboard({ setAuth }) {
@@ -27,6 +27,10 @@ function Dashboard({ setAuth }) {
 
     const [micOn, setMicOn] = useState(true);
     const [videoOn, setVideoOn] = useState(true);
+
+    // Toast State
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
 
     const myVideo = useRef();
     const userVideo = useRef();
@@ -157,6 +161,12 @@ function Dashboard({ setAuth }) {
             }
         });
 
+        socket.on('call_rejected', () => {
+            setToastMessage('User declined the call');
+            setShowToast(true);
+            leaveCall(false); // Clean up local peer without reload
+        });
+
         socket.on("call_ended_signal", () => {
             leaveCall(false);
         });
@@ -167,6 +177,25 @@ function Dashboard({ setAuth }) {
     const callUser = (socketId) => {
         // Redundant fn, but kept for logic consistency if needed.
     };
+
+    // ... callUserObj ...
+
+    const rejectCall = () => {
+        socket.emit('reject_call', { to: caller });
+        leaveCall(false);
+    };
+
+    const cancelCall = () => {
+        // Optionally notify server to stop ringing the other user, for now mostly local cleanup
+        // Ideally emit 'end_call' or similar if we had a proper handshake tracked
+        if (idToCall) {
+            // If we tracked who we called, we could emit cancellation. 
+            // For simple-peer, destroying peer stops the signal.
+        }
+        leaveCall(false);
+    };
+
+    // ... (rest of methods)
 
     const callUserObj = (targetUser) => {
         if (!stream) return alert(`No media stream. Status: ${mediaStatus}`);
@@ -279,18 +308,38 @@ function Dashboard({ setAuth }) {
                         <Button variant="link" onClick={toggleTheme} className={theme === 'dark' ? 'text-white' : 'text-dark'}>
                             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                         </Button>
+
                         {user && (
-                            <div className="d-flex align-items-center gap-2">
+                            <div className="d-flex align-items-center gap-3">
+                                <div className="d-flex flex-column align-items-end d-none d-sm-flex">
+                                    <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`} style={{ lineHeight: '1.2' }}>{user.username}</span>
+                                    <small className={`${theme === 'dark' ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>IP: {user.ipAddress}</small>
+                                </div>
+                                <div className="d-sm-none">
+                                    <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{user.username}</span>
+                                </div>
                                 <div className="pulse-status rounded-circle bg-success" style={{ width: 10, height: 10 }}></div>
-                                <span className={`fw-bold d-none d-sm-block ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{user.username}</span>
                             </div>
                         )}
-                        <Button variant="link" className="text-danger p-0" onClick={handleLogout}>
+                        <Button variant="link" className="text-danger p-0 ms-2" onClick={handleLogout}>
                             <LogOut size={22} />
                         </Button>
+
                     </div>
                 </Container>
             </Navbar>
+
+
+            {/* Toast Notification */}
+            <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
+                <Toast show={showToast} onClose={() => setShowToast(false)} delay={3000} autohide bg="danger">
+                    <Toast.Header>
+                        <strong className="me-auto text-dark">Notification</strong>
+                        <small>Just now</small>
+                    </Toast.Header>
+                    <Toast.Body className="text-white">{toastMessage}</Toast.Body>
+                </Toast>
+            </ToastContainer>
 
             {/* Main Content */}
             <Container className="flex-grow-1 d-flex flex-column justify-content-center py-4 px-4">
@@ -347,6 +396,13 @@ function Dashboard({ setAuth }) {
                                     </div>
                                     <h3 className="mb-2">{receivingCall && !callAccepted ? 'Incoming Call...' : 'Calling...'}</h3>
                                     <h5 className="text-muted">{callerName}</h5>
+                                    {!receivingCall && (
+                                        <div className="mt-4">
+                                            <Button variant="danger" className="rounded-pill px-4" onClick={cancelCall}>
+                                                <PhoneOff size={20} className="me-2" /> Cancel Call
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -393,7 +449,7 @@ function Dashboard({ setAuth }) {
                                         <Button variant="success" size="lg" className="px-4 py-2 rounded-pill fw-bold" onClick={answerCall}>
                                             <Video size={20} className="me-2" /> Answer
                                         </Button>
-                                        <Button variant="danger" size="lg" className="px-4 py-2 rounded-pill fw-bold" onClick={() => leaveCall(false)}>
+                                        <Button variant="danger" size="lg" className="px-4 py-2 rounded-pill fw-bold" onClick={rejectCall}>
                                             <PhoneOff size={20} className="me-2" /> Decline
                                         </Button>
                                     </div>

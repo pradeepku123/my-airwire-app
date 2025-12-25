@@ -61,6 +61,12 @@ const socketHandler = (io) => {
             io.to(data.to).emit("ice_candidate_incoming", data.candidate);
         });
 
+        socket.on("reject_call", (data) => {
+            // data.to contains the caller's socket ID or user ID. 
+            // In our frontend code, `caller` state holds the socket ID of who called us.
+            io.to(data.to).emit("call_rejected");
+        });
+
         socket.on("end_call", (data) => {
             io.to(data.to).emit("call_ended_signal", { from: userId });
         });

@@ -37,15 +37,15 @@ const Login = ({ setAuth }) => {
                     <div className="mb-4 d-inline-block p-3 rounded-circle bg-primary bg-opacity-25 text-primary-glow">
                         <Wifi size={48} />
                     </div>
-                    <Card.Title as="h2" className="fw-bold mb-4 text-white">Welcome Back</Card.Title>
+                    <Card.Title as="h2" className="fw-bold mb-4">Welcome Back</Card.Title>
 
                     {error && <div className="alert alert-danger py-2">{error}</div>}
 
                     <Form onSubmit={handleLogin}>
                         <div className="mb-3 text-start">
                             <InputGroup>
-                                <InputGroup.Text className="bg-transparent border-end-0 text-muted border-secondary">
-                                    <User size={18} />
+                                <InputGroup.Text className="bg-transparent border-end-0 border-secondary">
+                                    <User size={18} className="text-muted" />
                                 </InputGroup.Text>
                                 <Form.Control
                                     type="text"
@@ -53,14 +53,15 @@ const Login = ({ setAuth }) => {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     required
-                                    className="bg-transparent text-white border-start-0 border-secondary shadow-none"
+                                    className="bg-transparent border-start-0 border-secondary shadow-none input-theme-text"
+                                    style={{ color: 'var(--text-main)' }}
                                 />
                             </InputGroup>
                         </div>
                         <div className="mb-4 text-start">
                             <InputGroup>
-                                <InputGroup.Text className="bg-transparent border-end-0 text-muted border-secondary">
-                                    <Lock size={18} />
+                                <InputGroup.Text className="bg-transparent border-end-0 border-secondary">
+                                    <Lock size={18} className="text-muted" />
                                 </InputGroup.Text>
                                 <Form.Control
                                     type="password"
@@ -68,7 +69,8 @@ const Login = ({ setAuth }) => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="bg-transparent text-white border-start-0 border-secondary shadow-none"
+                                    className="bg-transparent border-start-0 border-secondary shadow-none input-theme-text"
+                                    style={{ color: 'var(--text-main)' }}
                                 />
                             </InputGroup>
                         </div>

@@ -61,17 +61,19 @@ body {
 }
 
 /* Navbar Customization */
+/* Navbar Customization */
 .navbar-custom {
-  background: rgba(11, 15, 25, 0.8);
+  background: var(--nav-bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--glass-border);
   padding: 1rem 0;
+  transition: background-color 0.3s ease;
 }
 
 .brand-text {
   font-weight: 700;
   font-size: 1.5rem;
-  background: linear-gradient(135deg, #fff 0%, var(--primary-glow) 100%);
+  background: linear-gradient(135deg, var(--text-main) 0%, var(--primary-glow) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
