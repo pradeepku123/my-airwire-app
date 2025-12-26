@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import api from './api';
+import api from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, Wifi } from 'lucide-react';
 import { Container, Card, Form, Button, Spinner, InputGroup } from 'react-bootstrap';
