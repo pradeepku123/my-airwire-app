@@ -86,20 +86,30 @@ function Dashboard({ setAuth }) {
 
                             {user && (
                                 <div className="d-flex align-items-center gap-3">
-                                    <div className="d-flex flex-column align-items-end d-none d-sm-flex">
+                                    {user.role === 'admin' && (
+                                        <Button
+                                            variant={theme === 'dark' ? 'outline-light' : 'outline-dark'}
+                                            size="sm"
+                                            className="d-flex align-items-center gap-2 text-nowrap"
+                                            onClick={() => navigate('/admin')}
+                                        >
+                                            <Wifi size={16} /> <span className="d-none d-md-inline">Admin Panel</span>
+                                        </Button>
+                                    )}
+                                    <div className="d-flex flex-column align-items-end d-none d-lg-flex">
                                         <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`} style={{ lineHeight: '1.2' }}>{user.username}</span>
                                         <small className={`${theme === 'dark' ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>IP: {user.ipAddress}</small>
                                     </div>
-                                    <div className="d-sm-none">
+                                    <div className="d-lg-none">
                                         <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{user.username}</span>
                                     </div>
                                     <div className="pulse-status rounded-circle bg-success" style={{ width: 10, height: 10 }}></div>
+
+                                    <Button variant="link" className="text-danger p-0 ms-2" onClick={handleLogout}>
+                                        <LogOut size={22} />
+                                    </Button>
                                 </div>
                             )}
-                            <Button variant="link" className="text-danger p-0 ms-2" onClick={handleLogout}>
-                                <LogOut size={22} />
-                            </Button>
-
                         </div>
                     </Container>
                 </Navbar>

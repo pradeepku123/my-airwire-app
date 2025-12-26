@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const CallLog = require('../models/CallLog');
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const config = require('../config');
@@ -18,6 +19,8 @@ const socketHandler = (io) => {
             next(new Error("Authentication error"));
         }
     });
+
+    const activeCalls = new Map(); // Store active call logs in memory or DB
 
     io.on('connection', async (socket) => {
         const userId = socket.user.id;
@@ -59,20 +62,73 @@ const socketHandler = (io) => {
             }
         });
 
-        socket.on("answer_call", (data) => {
+        // When call is accepted, create a log
+        socket.on("answer_call", async (data) => {
             io.to(data.to).emit("call_accepted", data.signal);
+
+            // Log call start
+            // data.to is caller's socketId. We need to find the user.
+            // But we don't have easy access to caller's UserID from just socketID here efficiently without looking up.
+            // Ideally frontend sends caller ID, but we can look it up.
+            try {
+                const caller = await User.findOne({ socketId: data.to });
+                if (caller) {
+                    const newCall = await CallLog.create({
+                        caller: caller._id,
+                        receiver: userId,
+                        startTime: new Date(),
+                        status: 'ongoing'
+                    });
+
+                    // Store call ID for both sockets to update later
+                    // Using a simple composite key or map
+                    // For simplicity, we just log it created. 
+                    // To update it properly on end_call, we'd need to track this 'newCall._id' with the socket.
+                    socket.activeCallId = newCall._id;
+
+                    // We also need to tell the caller about this Call ID? 
+                    // Or we just look up the latest 'ongoing' call between these two users on end.
+                }
+            } catch (err) {
+                logger.error(`Error logging call start: ${err.message}`);
+            }
         });
 
         socket.on("ice_candidate", (data) => {
             io.to(data.to).emit("ice_candidate_incoming", data.candidate);
         });
 
-        socket.on("reject_call", (data) => {
+        socket.on("reject_call", async (data) => {
             io.to(data.to).emit("call_rejected");
+
+            // Log rejection if we want
+            // For now, keeping simple
         });
 
-        socket.on("end_call", (data) => {
+        socket.on("end_call", async (data) => {
             io.to(data.to).emit("call_ended_signal", { from: userId });
+
+            // Update Call Log
+            try {
+                // Find ongoing call involving this user
+                // This is a naive approach; better to store callID in socket or client sends it.
+                // We look for a call where this user is caller OR receiver And status is ongoing
+                const call = await CallLog.findOne({
+                    $or: [{ caller: userId }, { receiver: userId }],
+                    status: 'ongoing'
+                }).sort({ startTime: -1 });
+
+                if (call) {
+                    const now = new Date();
+                    const duration = (now - call.startTime) / 1000;
+                    call.endTime = now;
+                    call.duration = duration;
+                    call.status = 'completed';
+                    await call.save();
+                }
+            } catch (err) {
+                logger.error(`Error logging call end: ${err.message}`);
+            }
         });
     });
 };

@@ -25,6 +25,7 @@ app.use('/api', limiter);
 // Routes
 app.use('/api', authRoutes);
 app.use('/api', userRoutes);
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // 404 Handler
 app.all('*', (req, res, next) => {

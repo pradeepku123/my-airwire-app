@@ -32,7 +32,8 @@ const login = asyncHandler(async (req, res) => {
         user: {
             id: user._id,
             username: user.username,
-            ipAddress: user.ipAddress
+            ipAddress: user.ipAddress,
+            role: user.role
         }
     });
 });

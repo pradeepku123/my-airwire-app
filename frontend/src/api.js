@@ -1,14 +1,27 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-    // Return empty string to use the same host/port (relative path)
-    // Nginx will proxy /api requests to the backend
     return '/api';
 };
 
 const api = axios.create({
     baseURL: getBaseUrl(),
-    timeout: 10000, // 10s timeout
+    timeout: 10000,
 });
+
+// Add a request interceptor
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 export default api;

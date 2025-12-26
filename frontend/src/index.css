@@ -44,6 +44,10 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+::-webkit-scrollbar {
+  display: none;
+}
+
 #root {
   min-height: 100vh;
   display: flex;
@@ -221,4 +225,74 @@ body {
   100% {
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
   }
+}
+
+/* Incoming Call Animations */
+.ripple-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ripple-avatar {
+  z-index: 2;
+  position: relative;
+}
+
+.ripple-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 4px solid var(--primary);
+  opacity: 0;
+  animation: ripple 2s infinite cubic-bezier(0, 0.2, 0.8, 1);
+}
+
+.ripple-ring:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.ripple-ring:nth-child(3) {
+  animation-delay: 1s;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.call-action-btn {
+  width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.call-action-btn:hover {
+  transform: scale(1.15) translateY(-5px);
+}
+
+.call-action-btn.answer {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+}
+
+.call-action-btn.reject {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
 }

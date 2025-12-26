@@ -5,10 +5,13 @@ import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 
+import AdminDashboard from './components/admin/AdminDashboard';
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // ... (useEffect remains same) ...
   useEffect(() => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
@@ -17,6 +20,7 @@ function App() {
     }
     setLoading(false);
   }, []);
+
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen text-white">Loading...</div>;
@@ -33,6 +37,10 @@ function App() {
           <Route
             path="/register"
             element={!isAuthenticated ? <Register /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/admin"
+            element={isAuthenticated ? <AdminDashboard /> : <Navigate to="/login" />}
           />
           <Route
             path="/"
