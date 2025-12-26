@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+const config = require('../config');
 
 const socketHandler = (io) => {
     // Middleware to verify token in socket connection
@@ -9,7 +10,7 @@ const socketHandler = (io) => {
             const token = socket.handshake.auth.token;
             if (!token) return next(new Error("Authentication error"));
 
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+            const decoded = jwt.verify(token, config.jwtSecret);
             socket.user = decoded; // { id: ... }
             next();
         } catch (err) {
@@ -39,18 +40,22 @@ const socketHandler = (io) => {
         });
 
         socket.on("call_user", async (data) => {
-            const targetUser = await User.findById(data.userToCall);
-            if (targetUser && targetUser.socketId) {
-                io.to(targetUser.socketId).emit("call_user_incoming", {
-                    signal: data.signalData,
-                    from: data.from,
-                    fromId: userId,
-                    fromSocket: socket.id,
-                    name: data.name,
-                    callType: data.callType
-                });
-            } else {
-                logger.warn(`Call failed: User ${data.userToCall} not found or offline`);
+            try {
+                const targetUser = await User.findById(data.userToCall);
+                if (targetUser && targetUser.socketId) {
+                    io.to(targetUser.socketId).emit("call_user_incoming", {
+                        signal: data.signalData,
+                        from: data.from,
+                        fromId: userId,
+                        fromSocket: socket.id,
+                        name: data.name,
+                        callType: data.callType
+                    });
+                } else {
+                    logger.warn(`Call failed: User ${data.userToCall} not found or offline`);
+                }
+            } catch (err) {
+                logger.error(`Socket Call Error: ${err.message}`);
             }
         });
 
@@ -63,8 +68,6 @@ const socketHandler = (io) => {
         });
 
         socket.on("reject_call", (data) => {
-            // data.to contains the caller's socket ID or user ID. 
-            // In our frontend code, `caller` state holds the socket ID of who called us.
             io.to(data.to).emit("call_rejected");
         });
 
