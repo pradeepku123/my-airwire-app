@@ -46,7 +46,8 @@ const socketHandler = (io) => {
                     from: data.from,
                     fromId: userId,
                     fromSocket: socket.id,
-                    name: data.name
+                    name: data.name,
+                    callType: data.callType
                 });
             } else {
                 logger.warn(`Call failed: User ${data.userToCall} not found or offline`);

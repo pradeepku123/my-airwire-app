@@ -21,7 +21,11 @@ function Dashboard({ setAuth }) {
     const [callerSignal, setCallerSignal] = useState(null);
     const [callAccepted, setCallAccepted] = useState(false);
     const [callEnded, setCallEnded] = useState(false);
+    const [callDuration, setCallDuration] = useState(0);
     const [idToCall, setIdToCall] = useState('');
+    const [callTargetSocketId, setCallTargetSocketId] = useState(null); // Store socket ID for cancellation
+    const [outgoingCall, setOutgoingCall] = useState(false);
+    const [incomingCallType, setIncomingCallType] = useState('video'); // 'video' or 'audio'
     const [mediaStatus, setMediaStatus] = useState('Initializing...');
     const [userStream, setUserStream] = useState(null); // Remote stream state
 
@@ -62,6 +66,13 @@ function Dashboard({ setAuth }) {
         }
         return () => stopRingtone();
     }, [receivingCall, callAccepted, callEnded]);
+
+    // Keep Local Video Stream Attached to Ref (Video Element)
+    useEffect(() => {
+        if (myVideo.current && stream) {
+            myVideo.current.srcObject = stream;
+        }
+    }, [stream, videoOn, callAccepted, outgoingCall]); // Re-run when view changes
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -142,9 +153,9 @@ function Dashboard({ setAuth }) {
 
         socket.on('call_user_incoming', (data) => {
             setReceivingCall(true);
-            setCaller(data.from);
-            setCaller(data.fromSocket);
+            setCaller(data.fromSocket); // Use Socket ID for signaling responses
             setCallerName(data.name);
+            setIncomingCallType(data.callType || 'video');
             setCallerSignal(data.signal);
         });
 
@@ -164,11 +175,11 @@ function Dashboard({ setAuth }) {
         socket.on('call_rejected', () => {
             setToastMessage('User declined the call');
             setShowToast(true);
-            leaveCall(false); // Clean up local peer without reload
+            leaveCall(); // Clean up local peer without reload
         });
 
         socket.on("call_ended_signal", () => {
-            leaveCall(false);
+            leaveCall();
         });
 
     }, [socket, user]);
@@ -182,23 +193,30 @@ function Dashboard({ setAuth }) {
 
     const rejectCall = () => {
         socket.emit('reject_call', { to: caller });
-        leaveCall(false);
+        leaveCall();
     };
 
-    const cancelCall = () => {
-        // Optionally notify server to stop ringing the other user, for now mostly local cleanup
-        // Ideally emit 'end_call' or similar if we had a proper handshake tracked
-        if (idToCall) {
-            // If we tracked who we called, we could emit cancellation. 
-            // For simple-peer, destroying peer stops the signal.
+    const endCall = () => {
+        const target = callTargetSocketId || caller;
+        if (target) {
+            socket.emit('end_call', { to: target });
         }
-        leaveCall(false);
+        leaveCall();
     };
 
     // ... (rest of methods)
 
-    const callUserObj = (targetUser) => {
+    const callUserObj = (targetUser, type = 'video') => {
         if (!stream) return alert(`No media stream. Status: ${mediaStatus}`);
+
+        // Configure local tracks based on call type
+        const isVideo = type === 'video';
+        setVideoOn(isVideo);
+        stream.getVideoTracks().forEach(track => track.enabled = isVideo);
+
+        setCallTargetSocketId(targetUser.socketId);
+        setOutgoingCall(true);
+        setCallerName(targetUser.username);
 
         const peer = new Peer({
             initiator: true,
@@ -217,7 +235,8 @@ function Dashboard({ setAuth }) {
                 userToCall: targetUser._id,
                 signalData: data,
                 from: user.id,
-                name: user.username
+                name: user.username,
+                callType: type
             });
         });
 
@@ -231,6 +250,14 @@ function Dashboard({ setAuth }) {
     const answerCall = () => {
         setCallAccepted(true);
         stopRingtone();
+
+        // Match the incoming call type for our local stream
+        const isVideo = incomingCallType === 'video';
+        setVideoOn(isVideo);
+        if (stream) {
+            stream.getVideoTracks().forEach(track => track.enabled = isVideo);
+        }
+
         const peer = new Peer({
             initiator: false,
             trickle: false,
@@ -255,20 +282,33 @@ function Dashboard({ setAuth }) {
         connectionRef.current = peer;
     };
 
-    const leaveCall = (reload = true) => {
+    const leaveCall = () => {
         stopRingtone();
-        setCallEnded(true);
+
         if (connectionRef.current) {
             connectionRef.current.destroy();
+            connectionRef.current = null;
         }
+
         setCallAccepted(false);
         setReceivingCall(false);
+        setOutgoingCall(false);
+        setCallEnded(false);
+        setCallDuration(0);
+
         setCaller("");
         setCallerName("");
         setCallerSignal(null);
-        setCallEnded(false);
+
+        // Reset media state for next call
+        setMicOn(true);
+        setVideoOn(true);
+        if (stream) {
+            stream.getAudioTracks().forEach(track => track.enabled = true);
+            stream.getVideoTracks().forEach(track => track.enabled = true);
+        }
+
         setUserStream(null);
-        if (reload) window.location.reload();
     };
 
     const toggleMic = () => {
@@ -280,8 +320,14 @@ function Dashboard({ setAuth }) {
 
     const toggleVideo = () => {
         if (stream) {
+            const videoTrack = stream.getVideoTracks()[0];
+            if (!videoTrack) {
+                // Should not happen if permissions were granted, but handle 'Audio Only' fallback case
+                alert("No camera detected or permission was denied. Cannot switch to video.");
+                return;
+            }
             setVideoOn(!videoOn);
-            stream.getVideoTracks()[0].enabled = !videoOn;
+            videoTrack.enabled = !videoOn;
         }
     };
 
@@ -292,42 +338,64 @@ function Dashboard({ setAuth }) {
         navigate('/login');
     };
 
+    // Timer Logic
+    useEffect(() => {
+        let interval;
+        if (callAccepted && !callEnded) {
+            interval = setInterval(() => {
+                setCallDuration(prev => prev + 1);
+            }, 1000);
+        } else {
+            setCallDuration(0);
+        }
+        return () => clearInterval(interval);
+    }, [callAccepted, callEnded]);
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     return (
         <div className="d-flex flex-column min-vh-100">
             {/* Navbar */}
-            <Navbar className="navbar-custom sticky-top">
-                <Container>
-                    <Navbar.Brand className="brand-text d-flex align-items-center gap-2">
-                        <Wifi size={24} className="text-primary-glow" />
-                        AirWire
-                    </Navbar.Brand>
-                    <div className="d-flex align-items-center gap-3">
-                        <Badge bg={mediaStatus.includes('Ready') ? "success" : "danger"} className="d-none d-sm-block">
-                            Camera: {mediaStatus}
-                        </Badge>
-                        <Button variant="link" onClick={toggleTheme} className={theme === 'dark' ? 'text-white' : 'text-dark'}>
-                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                        </Button>
+            {/* Navbar - Hide when in call/calling */}
+            {(!callAccepted && !receivingCall && !outgoingCall) && (
+                <Navbar className="navbar-custom sticky-top">
+                    <Container>
+                        <Navbar.Brand className="brand-text d-flex align-items-center gap-2">
+                            <Wifi size={24} className="text-primary-glow" />
+                            AirWire
+                        </Navbar.Brand>
+                        <div className="d-flex align-items-center gap-3">
+                            <Badge bg={mediaStatus.includes('Ready') ? "success" : "danger"} className="d-none d-sm-block">
+                                Camera: {mediaStatus}
+                            </Badge>
+                            <Button variant="link" onClick={toggleTheme} className={theme === 'dark' ? 'text-white' : 'text-dark'}>
+                                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                            </Button>
 
-                        {user && (
-                            <div className="d-flex align-items-center gap-3">
-                                <div className="d-flex flex-column align-items-end d-none d-sm-flex">
-                                    <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`} style={{ lineHeight: '1.2' }}>{user.username}</span>
-                                    <small className={`${theme === 'dark' ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>IP: {user.ipAddress}</small>
+                            {user && (
+                                <div className="d-flex align-items-center gap-3">
+                                    <div className="d-flex flex-column align-items-end d-none d-sm-flex">
+                                        <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`} style={{ lineHeight: '1.2' }}>{user.username}</span>
+                                        <small className={`${theme === 'dark' ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.75rem' }}>IP: {user.ipAddress}</small>
+                                    </div>
+                                    <div className="d-sm-none">
+                                        <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{user.username}</span>
+                                    </div>
+                                    <div className="pulse-status rounded-circle bg-success" style={{ width: 10, height: 10 }}></div>
                                 </div>
-                                <div className="d-sm-none">
-                                    <span className={`fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{user.username}</span>
-                                </div>
-                                <div className="pulse-status rounded-circle bg-success" style={{ width: 10, height: 10 }}></div>
-                            </div>
-                        )}
-                        <Button variant="link" className="text-danger p-0 ms-2" onClick={handleLogout}>
-                            <LogOut size={22} />
-                        </Button>
+                            )}
+                            <Button variant="link" className="text-danger p-0 ms-2" onClick={handleLogout}>
+                                <LogOut size={22} />
+                            </Button>
 
-                    </div>
-                </Container>
-            </Navbar>
+                        </div>
+                    </Container>
+                </Navbar>
+            )}
 
 
             {/* Toast Notification */}
@@ -342,98 +410,172 @@ function Dashboard({ setAuth }) {
             </ToastContainer>
 
             {/* Main Content */}
-            <Container className="flex-grow-1 d-flex flex-column justify-content-center py-4 px-4">
-                {!callAccepted && !receivingCall ? (
+            <Container
+                fluid={!!(callAccepted || receivingCall || outgoingCall)}
+                className={`flex-grow-1 d-flex flex-column justify-content-center ${callAccepted || receivingCall || outgoingCall ? 'p-0 m-0' : 'py-4 px-4'}`}
+            >
+                {!callAccepted && !receivingCall && !outgoingCall ? (
                     <>
-                        <div className="mb-4">
-                            <h2 className={`fw-light mb-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>Online Users</h2>
-                            <p className={theme === 'dark' ? 'text-white-50 small' : 'text-muted small'}>Select a user to start a secure video call.</p>
-                        </div>
-
-                        {onlineUsers.length === 0 ? (
-                            <div className="text-center py-5 glass-panel">
-                                <div className={`mb-3 d-inline-block p-4 rounded-circle ${theme === 'dark' ? 'bg-white bg-opacity-10' : 'bg-dark bg-opacity-10'}`}>
-                                    <UserIcon size={48} className={theme === 'dark' ? 'text-white-50' : 'text-muted'} />
-                                </div>
-                                <h5 className={`mb-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>No one else is here...</h5>
-                                <p className={`small mb-0 ${theme === 'dark' ? 'text-white-50' : 'text-muted'}`}>Open this URL on another device/browser to test.</p>
+                        <Container>
+                            <div className="mb-4">
+                                <h2 className={`fw-light mb-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>Online Users</h2>
+                                <p className={theme === 'dark' ? 'text-white-50 small' : 'text-muted small'}>Select a user to start a secure video call.</p>
                             </div>
-                        ) : (
-                            <Row>
-                                {onlineUsers.map((u) => (
-                                    <Col xs={12} md={6} lg={4} key={u._id} className="mb-3">
-                                        <div className="glass-panel user-card p-3 d-flex align-items-center justify-content-between" onClick={() => callUserObj(u)}>
-                                            <div className="d-flex align-items-center gap-3">
-                                                <div className="avatar-circle">
-                                                    {u.username[0].toUpperCase()}
+
+                            {onlineUsers.length === 0 ? (
+                                <div className="text-center py-5 glass-panel">
+                                    <div className={`mb-3 d-inline-block p-4 rounded-circle ${theme === 'dark' ? 'bg-white bg-opacity-10' : 'bg-dark bg-opacity-10'}`}>
+                                        <UserIcon size={48} className={theme === 'dark' ? 'text-white-50' : 'text-muted'} />
+                                    </div>
+                                    <h5 className={`mb-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>No one else is here...</h5>
+                                    <p className={`small mb-0 ${theme === 'dark' ? 'text-white-50' : 'text-muted'}`}>Open this URL on another device/browser to test.</p>
+                                </div>
+                            ) : (
+                                <Row>
+                                    {onlineUsers.map((u) => (
+                                        <Col xs={12} md={6} lg={4} key={u._id} className="mb-3">
+                                            <div className="glass-panel user-card p-3 d-flex align-items-center justify-content-between">
+                                                <div className="d-flex align-items-center gap-3">
+                                                    <div className="avatar-circle">
+                                                        {u.username[0].toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <h5 className={`mb-0 fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{u.username}</h5>
+                                                        <small className="text-success">● Online</small>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h5 className={`mb-0 fw-bold ${theme === 'dark' ? 'text-white' : 'text-dark'}`}>{u.username}</h5>
-                                                    <small className="text-success">● Online</small>
+                                                <div className="d-flex gap-2">
+                                                    <Button
+                                                        className="btn-icon btn-secondary"
+                                                        onClick={() => callUserObj(u, 'audio')}
+                                                        title="Voice Call"
+                                                    >
+                                                        <Phone size={20} />
+                                                    </Button>
+                                                    <Button
+                                                        className="btn-icon btn-premium-primary"
+                                                        onClick={() => callUserObj(u, 'video')}
+                                                        title="Video Call"
+                                                    >
+                                                        <Video size={20} />
+                                                    </Button>
                                                 </div>
                                             </div>
-                                            <Button className="btn-icon btn-premium-primary">
-                                                <Phone size={20} />
-                                            </Button>
-                                        </div>
-                                    </Col>
-                                ))}
-                            </Row>
-                        )}
+                                        </Col>
+                                    ))}
+                                </Row>
+                            )}
+                        </Container>
                     </>
                 ) : (
-                    <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100">
+                    <div className="d-flex flex-column align-items-center justify-content-center w-100 h-100 m-0 p-0">
                         {/* Video Area */}
-                        <div className="video-wrapper w-100 h-100 d-flex justify-content-center align-items-center" style={{ maxWidth: '1000px', aspectRatio: '16/9', background: '#000' }}>
+                        <div
+                            className="video-wrapper w-100 d-flex justify-content-center align-items-center position-relative m-0 p-0"
+                            style={{
+                                height: '100vh',
+                                width: '100vw',
+                                background: '#000',
+                                borderRadius: 0,
+                                border: 'none',
+                                maxWidth: 'none'
+                            }}
+                        >
                             {callAccepted && !callEnded ? (
-                                <video playsInline ref={userVideo} autoPlay className="w-100 h-100 object-fit-cover" />
-                            ) : (
-                                <div className="text-center text-white">
-                                    <div className="mb-4 floating">
-                                        <div className="p-4 rounded-circle bg-white bg-opacity-10 d-inline-block">
-                                            <UserIcon size={64} className="text-primary" />
+                                <>
+                                    <video playsInline ref={userVideo} autoPlay className="w-100 h-100 object-fit-cover" />
+                                    <div className="position-absolute top-0 start-50 translate-middle-x mt-4 px-4 py-2 rounded-pill bg-dark bg-opacity-50 text-white backdrop-blur z-3">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <div className="pulse-status bg-danger rounded-circle" style={{ width: 8, height: 8 }}></div>
+                                            <span className="fw-bold font-monospace">{formatTime(callDuration)}</span>
                                         </div>
                                     </div>
-                                    <h3 className="mb-2">{receivingCall && !callAccepted ? 'Incoming Call...' : 'Calling...'}</h3>
-                                    <h5 className="text-muted">{callerName}</h5>
-                                    {!receivingCall && (
-                                        <div className="mt-4">
-                                            <Button variant="danger" className="rounded-pill px-4" onClick={cancelCall}>
-                                                <PhoneOff size={20} className="me-2" /> Cancel Call
-                                            </Button>
+                                </>
+                            ) : (
+                                <div className="text-center text-white d-flex flex-column align-items-center justify-content-center w-100 h-100 p-4 position-relative overflow-hidden">
+                                    {outgoingCall && videoOn && stream ? (
+                                        <video
+                                            playsInline
+                                            muted
+                                            ref={myVideo}
+                                            autoPlay
+                                            className="position-absolute top-0 start-0 w-100 h-100 object-fit-cover"
+                                            style={{ transform: 'scaleX(-1)', zIndex: 0 }} // Mirror effect
+                                        />
+                                    ) : (
+                                        <div className="mb-4 floating position-relative" style={{ zIndex: 1 }}>
+                                            <div className="p-4 rounded-circle bg-white bg-opacity-10 d-inline-block">
+                                                <UserIcon size={64} className="text-primary" />
+                                            </div>
                                         </div>
                                     )}
+
+                                    {/* Overlay content */}
+                                    <div className="position-relative d-flex flex-column align-items-center w-100" style={{ zIndex: 2 }}>
+                                        <h3 className="mb-2 text-shadow">{receivingCall && !callAccepted ? 'Incoming Call...' : 'Calling...'}</h3>
+                                        <h5 className="text-muted mb-4 text-shadow">{callerName}</h5>
+
+                                        {!receivingCall && outgoingCall && (
+                                            <div className="d-flex flex-column align-items-center gap-4 mt-2">
+                                                {/* Pre-call controls */}
+                                                <div className="d-flex gap-3">
+                                                    <Button
+                                                        className={`btn-icon ${micOn ? 'btn-secondary' : 'btn-danger'}`}
+                                                        onClick={toggleMic}
+                                                        title={micOn ? "Mute Mic" : "Unmute Mic"}
+                                                    >
+                                                        {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+                                                    </Button>
+                                                    <Button
+                                                        className={`btn-icon ${videoOn ? 'btn-secondary' : 'btn-danger'}`}
+                                                        onClick={toggleVideo}
+                                                        title={videoOn ? "Turn Off Video" : "Turn On Video"}
+                                                    >
+                                                        {videoOn ? <Video size={20} /> : <VideoOff size={20} />}
+                                                    </Button>
+                                                </div>
+
+                                                <Button variant="danger" size="lg" className="rounded-pill px-5 py-2 fw-bold shadow-lg" onClick={endCall}>
+                                                    <PhoneOff size={24} className="me-2" /> Cancel
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* Dark overlay for readability if video is on */}
+                                    {outgoingCall && videoOn && <div className="position-absolute top-0 start-0 w-100 h-100 bg-black bg-opacity-50" style={{ zIndex: 1 }}></div>}
                                 </div>
                             )}
 
-                            {/* Local Video PiP - Only show if videoOn and we have stream */}
-                            {stream && videoOn && (
+                            {/* Local Video PiP - Only show if videoOn and we have stream AND Call is Accepted */}
+                            {stream && videoOn && callAccepted && !callEnded && (
                                 <div className="local-video-pip">
                                     <video playsInline muted ref={myVideo} autoPlay className="w-100 h-100 object-fit-cover" />
                                 </div>
                             )}
 
-                            {/* Controls Bar */}
-                            <div className="controls-bar position-absolute bottom-0 mb-4 bg-dark bg-opacity-75 backdrop-blur rounded-pill px-4 py-3 d-flex gap-3 shadow-lg">
-                                <Button
-                                    className={`btn-icon ${micOn ? 'btn-secondary' : 'btn-danger'}`}
-                                    onClick={toggleMic}
-                                >
-                                    {micOn ? <Mic size={20} /> : <MicOff size={20} />}
-                                </Button>
-                                <Button
-                                    className={`btn-icon ${videoOn ? 'btn-secondary' : 'btn-danger'}`}
-                                    onClick={toggleVideo}
-                                >
-                                    {videoOn ? <Video size={20} /> : <VideoOff size={20} />}
-                                </Button>
-                                <Button
-                                    className="btn-icon btn-danger"
-                                    onClick={() => leaveCall(true)}
-                                >
-                                    <PhoneOff size={20} />
-                                </Button>
-                            </div>
+                            {/* Controls Bar - HIDE if we are just "Calling..." (outgoing non-accepted call) because we show inline controls above */}
+                            {(!outgoingCall || callAccepted) && (
+                                <div className="controls-bar position-absolute bottom-0 start-50 translate-middle-x mb-4 bg-dark bg-opacity-75 backdrop-blur rounded-pill px-4 py-3 d-flex justify-content-center gap-3 shadow-lg" style={{ zIndex: 20 }}>
+                                    <Button
+                                        className={`btn-icon ${micOn ? 'btn-secondary' : 'btn-danger'}`}
+                                        onClick={toggleMic}
+                                    >
+                                        {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+                                    </Button>
+                                    <Button
+                                        className={`btn-icon ${videoOn ? 'btn-secondary' : 'btn-danger'}`}
+                                        onClick={toggleVideo}
+                                    >
+                                        {videoOn ? <Video size={20} /> : <VideoOff size={20} />}
+                                    </Button>
+                                    <Button
+                                        className="btn-icon btn-danger"
+                                        onClick={endCall}
+                                    >
+                                        <PhoneOff size={20} />
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Incoming Call Modal Overlay */}
@@ -444,7 +586,7 @@ function Dashboard({ setAuth }) {
                                         {callerName ? callerName[0].toUpperCase() : 'U'}
                                     </div>
                                     <h3 className="fw-bold mb-2 text-white">{callerName}</h3>
-                                    <p className="text-muted mb-4">is requesting a video call...</p>
+                                    <p className="text-muted mb-4">is requesting a {incomingCallType === 'video' ? 'Video' : 'Voice'} call...</p>
                                     <div className="d-flex gap-3 justify-content-center">
                                         <Button variant="success" size="lg" className="px-4 py-2 rounded-pill fw-bold" onClick={answerCall}>
                                             <Video size={20} className="me-2" /> Answer
