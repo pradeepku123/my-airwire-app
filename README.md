@@ -26,20 +26,19 @@
 <div align="center">
   <table>
     <tr>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/1.png?raw=true" width="400" alt="Screenshot 1"/><br><sub>Register</sub></td>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/2.png?raw=true" width="400" alt="Screenshot 2"/><br><sub>Login</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/1.png?raw=true" width="400" alt="Register Screenshot 1"/><br><sub>Register</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/2.png?raw=true" width="400" alt="Login Screenshot 2"/><br><sub>Login</sub></td>
     </tr>
     <tr>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/3.png?raw=true" width="400" alt="Screenshot 3"/><br><sub>Call Area</sub></td>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/4.png?raw=true" width="400" alt="Screenshot 4"/><br><sub>Call</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/3.png?raw=true" width="400" alt="Call Area Screenshot 3"/><br><sub>Call Area</sub></td>
     </tr>
     <tr>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/6.png?raw=true" width="400" alt="Screenshot 6"/><br><sub>Call Area</sub></td>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/7.png?raw=true" width="400" alt="Screenshot 7"/><br><sub>Call</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/6.png?raw=true" width="400" alt="Recived Call Screenshot 6"/><br><sub>Recived Call</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/7.png?raw=true" width="400" alt="Incomming Call Screenshot 7"/><br><sub>Incomming Call</sub></td>
     </tr>
     <tr>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/8.png?raw=true" width="400" alt="Screenshot 8"/><br><sub>Call Area</sub></td>
-      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/9.png?raw=true" width="400" alt="Screenshot 9"/><br><sub>Call</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/8.png?raw=true" width="400" alt="Calling Screenshot 8"/><br><sub>Calling</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/9.jpg?raw=true" width="400" alt="Video Call Screenshot 9"/><br><sub>Video Call</sub></td>
     </tr>
   </table>
 </div>
