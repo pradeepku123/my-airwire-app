@@ -31,6 +31,7 @@
     </tr>
     <tr>
       <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/3.png?raw=true" width="400" alt="Call Area Screenshot 3"/><br><sub>Call Area</sub></td>
+       <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/10.jpg?raw=true" width="400" alt="Video Calling Screenshot 10"/><br><sub>Video Calling</sub></td>
     </tr>
     <tr>
       <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/6.png?raw=true" width="400" alt="Recived Call Screenshot 6"/><br><sub>Recived Call</sub></td>
