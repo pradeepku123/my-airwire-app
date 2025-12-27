@@ -21,6 +21,23 @@
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/1.png?raw=true" width="400" alt="Screenshot 1"/><br><sub>Register</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/2.png?raw=true" width="400" alt="Screenshot 2"/><br><sub>Login</sub></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/3.png?raw=true" width="400" alt="Screenshot 3"/><br><sub>Call Area</sub></td>
+      <td align="center"><img src="https://github.com/pradeepku123/my-airwire-app/blob/main/frontend/assets/4.png?raw=true" width="400" alt="Screenshot 4"/><br><sub>Call</sub></td>
+    </tr>
+  </table>
+</div>
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
