@@ -9,7 +9,7 @@ window.global = window;
 window.process = {
   env: { DEBUG: undefined },
   version: '',
-  nextTick: (cb) => setTimeout(cb, 0),
+  nextTick: (fn, ...args) => setTimeout(() => fn(...args), 0),
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(

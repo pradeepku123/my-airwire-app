@@ -300,6 +300,66 @@ const useWebRTC = (navigate, setAuth) => {
         }
     };
 
+    const switchCamera = async () => {
+        if (!stream) return;
+        const videoTracks = stream.getVideoTracks();
+        if (videoTracks.length === 0) {
+            console.log("No local video track to switch.");
+            return;
+        }
+
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+            if (videoDevices.length < 2) {
+                console.log("Only one video device found.");
+                return;
+            }
+
+            const currentVideoTrack = videoTracks[0];
+            const currentDeviceId = currentVideoTrack.getSettings().deviceId;
+
+            const currentIndex = videoDevices.findIndex(d => d.deviceId === currentDeviceId);
+            const nextIndex = (currentIndex + 1) % videoDevices.length;
+            const nextDevice = videoDevices[nextIndex];
+
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: nextDevice.deviceId } },
+                audio: false
+            });
+            const newVideoTrack = newStream.getVideoTracks()[0];
+
+            if (connectionRef.current) {
+                const peer = connectionRef.current;
+                // Robustness: Directly look up the Sender for video
+                // This bypasses 'simple-peer' tracking issues by going to the native WebRTC connection
+                if (peer._pc) {
+                    const sender = peer._pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) {
+                        await sender.replaceTrack(newVideoTrack);
+                    } else {
+                        console.warn("No video sender found in active connection to replace.");
+                    }
+                }
+            }
+
+            // Update Local Stream
+            stream.removeTrack(currentVideoTrack);
+            stream.addTrack(newVideoTrack);
+
+            // Updates to state triggers re-render
+            setStream(new MediaStream([...stream.getTracks()]));
+
+            // Stop old track
+            currentVideoTrack.stop();
+
+        } catch (err) {
+            console.error("Error switching camera:", err);
+            alert("Unable to switch camera: " + err.message);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -337,6 +397,7 @@ const useWebRTC = (navigate, setAuth) => {
         endCall,
         toggleMic,
         toggleVideo,
+        switchCamera,
         handleLogout,
         formatTime
     };

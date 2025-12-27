@@ -5,6 +5,7 @@ import { Container, Navbar, Badge, Button, Toast, ToastContainer } from 'react-b
 import UserList from './UserList';
 import VideoStage from './VideoStage';
 import IncomingCallModal from './IncomingCallModal';
+import OutgoingCallModal from './OutgoingCallModal';
 import useWebRTC from '../hooks/useWebRTC';
 
 function Dashboard({ setAuth }) {
@@ -40,6 +41,7 @@ function Dashboard({ setAuth }) {
         endCall,
         toggleMic,
         toggleVideo,
+        switchCamera,
         handleLogout,
         formatTime
     } = useWebRTC(navigate, setAuth);
@@ -159,23 +161,41 @@ function Dashboard({ setAuth }) {
                 ) : (
                     <div className="d-flex flex-column align-items-center justify-content-center w-100 h-100 m-0 p-0">
 
-                        <VideoStage
-                            callAccepted={callAccepted}
-                            callEnded={callEnded}
-                            userVideoRef={userVideo}
-                            myVideoRef={myVideo}
-                            stream={stream}
-                            videoOn={videoOn}
-                            micOn={micOn}
-                            toggleMic={toggleMic}
-                            toggleVideo={toggleVideo}
-                            endCall={endCall}
-                            outgoingCall={outgoingCall}
-                            receivingCall={receivingCall}
-                            callerName={callerName}
-                            callDuration={callDuration}
-                            formatTime={formatTime}
-                        />
+                        {/* Active Call Stage */}
+                        {callAccepted && !callEnded && (
+                            <VideoStage
+                                callAccepted={callAccepted}
+                                callEnded={callEnded}
+                                userVideoRef={userVideo}
+                                myVideoRef={myVideo}
+                                stream={stream}
+                                videoOn={videoOn}
+                                micOn={micOn}
+                                toggleMic={toggleMic}
+                                toggleVideo={toggleVideo}
+                                switchCamera={switchCamera}
+                                endCall={endCall}
+                                outgoingCall={outgoingCall}
+                                receivingCall={receivingCall}
+                                callerName={callerName}
+                                callDuration={callDuration}
+                                formatTime={formatTime}
+                            />
+                        )}
+
+                        {/* Outgoing Call Modal - New */}
+                        {outgoingCall && !callAccepted && (
+                            <OutgoingCallModal
+                                callerName={callerName}
+                                stream={stream}
+                                videoOn={videoOn}
+                                micOn={micOn}
+                                toggleMic={toggleMic}
+                                toggleVideo={toggleVideo}
+                                endCall={endCall}
+                                myVideoRef={myVideo}
+                            />
+                        )}
 
                         {/* Incoming Call Modal Overlay */}
                         {receivingCall && !callAccepted && (
